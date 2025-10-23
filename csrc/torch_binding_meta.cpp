@@ -4,7 +4,14 @@
 #include <torch_npu/csrc/core/npu/NPUStream.h>
 #include <torch_npu/csrc/framework/OpCommand.h>
 #include <torch_npu/csrc/npu/Module.h>
+
+#include "bgmv_expand/op_host/bgmv_expand.h"
+#include "get_masked_input_and_mask/op_host/get_masked_input_and_mask.h"
+#include "mla_preprocess/op_host/mla_preprocess.h"
+#include "rotary_embedding/op_host/rotary_embedding.h"
+#include "sgmv_expand/op_host/sgmv_expand.h"
 #include "utils.h"
+
 /*
  * How to write a meta implementation for a custom operator (meta kernel):
  *
@@ -33,91 +40,6 @@
  * See below for real examples.
  */
 
-namespace vllm_ascend {
-namespace meta {
-
-std::tuple<at::Tensor, at::Tensor> rotary_embedding_meta(
-  at::Tensor &positions,
-  at::Tensor &query,
-  at::Tensor &key,
-  int64_t head_size,
-  at::Tensor &cos_sin_cache,
-  bool is_neox) {
-    auto num_tokens = positions.sym_numel();
-    auto query_hidden_size = query.sym_numel() / num_tokens;
-    auto key_hidden_size = key.sym_numel() / num_tokens;
-
-    auto num_heads = query_hidden_size / head_size;
-    auto num_kv_heads = key_hidden_size / head_size;
-    at::Tensor query_dst = at::empty_symint({num_tokens, num_heads, head_size}, query.options());
-    at::Tensor key_dst = at::empty_symint({num_tokens, num_kv_heads, head_size}, key.options());
-
-    return {query_dst, key_dst};
-}
-
-std::tuple<at::Tensor, at::Tensor> get_masked_input_and_mask_meta(
-    at::Tensor &input,
-    const int64_t org_vocab_start_index,
-    const int64_t org_vocab_end_index,
-    const int64_t num_org_vocab_padding,
-    const int64_t added_vocab_start_index,
-    const int64_t added_vocab_end_index) {
-
-    at::Tensor masked_input = at::empty_like(input);
-    at::Tensor mask = at::empty_like(input, input.options().dtype(at::kBool));
-
-    return {masked_input, mask};
-}
-
-at::Tensor bgmv_expand_meta(at::Tensor &x, at::Tensor &weight, at::Tensor &indices, at::Tensor &y,
-                       int64_t slice_offset, int64_t slice_size) {
-    at::Tensor y_out = at::empty_like(y);
-    return y_out;
-}
-
-at::Tensor sgmv_expand_meta(at::Tensor &x, at::Tensor &weight, at::Tensor &lora_indices, at::Tensor &seq_len,
-                       at::Tensor &y, int64_t slice_offset, int64_t slice_size) {
-    at::Tensor y_out = at::empty_like(y);
-    return y_out;
-}
-
-std::tuple<at::Tensor &, at::Tensor &, at::Tensor &, at::Tensor &> mla_preprocess(
-    const at::Tensor &hiddenState,
-    const at::Tensor &wdqkv,
-    const at::Tensor &descale0,
-    const at::Tensor &gamma1,
-    const at::Tensor &beta1,
-    const at::Tensor &wuq,
-    const at::Tensor &descale1,
-    const at::Tensor &gamma2,
-    const at::Tensor &cos,
-    const at::Tensor &sin,
-    const at::Tensor &wuk,
-    const at::Tensor &kv_cache,
-    const at::Tensor &kv_cache_rope,
-    const at::Tensor &slotmapping,
-    const at::Tensor &quant_scale0,
-    const at::Tensor &quant_offset0,
-    const at::Tensor &bias0,
-    const at::Tensor &quant_scale1,
-    const at::Tensor &quant_offset1,
-    const at::Tensor &bias1,
-    const c10::optional<at::Tensor> &ctkv_scale,
-    const c10::optional<at::Tensor> &q_nope_scale,
-    c10::optional<c10::string_view> cache_mode,
-    c10::optional<c10::string_view> quant_mode,
-    at::Tensor &q_out0,
-    at::Tensor &kv_cache_out0,
-    at::Tensor &q_out1,
-    at::Tensor &kv_cache_out1)
-{
-    return {q_out0, kv_cache_out0, q_out1, kv_cache_out1};
-}
-
-
-} // namespace meta
-} // namespace vllm_ascend
-
 namespace {
   // Register the meta implementations of the custom kernels for symbolic tracing, this will also
   // the custom kernel been captured into aclgraph
@@ -131,6 +53,6 @@ namespace {
     // Sgmv expand
     ops.impl("sgmv_expand", &vllm_ascend::meta::sgmv_expand_meta);
     // MLA preprocess
-    ops.impl("mla_preprocess", &vllm_ascend::meta::mla_preprocess);
+    ops.impl("mla_preprocess", &vllm_ascend::meta::mla_preprocess_meta);
 }
 }

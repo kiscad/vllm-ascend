@@ -45,19 +45,6 @@ endif()
 
 include(${ASCENDC_CMAKE_DIR}/ascendc.cmake)
 
-file(GLOB KERNEL_FILES
-${CMAKE_CURRENT_SOURCE_DIR}/csrc/kernels/*.cpp)
-
-ascendc_library(vllm_ascend_kernels SHARED
-    ${KERNEL_FILES}
-    ${CMAKE_CURRENT_SOURCE_DIR}/csrc/mla_preprocess/op_kernel/mla_preprocess_kernel.cpp
-)
-
-message("TORCH_NPU_PATH is ${TORCH_NPU_PATH}")
-
-file(GLOB VLLM_ASCEND_SRC
-${CMAKE_CURRENT_SOURCE_DIR}/csrc/*.cpp)
-
 include_directories(
   ${pybind11_INCLUDE_DIRS}
   ${PYTHON_INCLUDE_PATH}
@@ -76,27 +63,59 @@ set(
   ${ASCEND_HOME_PATH}/aarch64-linux/include/experiment/platform
 )
 
+file(GLOB KERNEL_FILES
+${CMAKE_CURRENT_SOURCE_DIR}/csrc/kernels/*.cpp)
+
+ascendc_library(npu_kernels STATIC
+    ${KERNEL_FILES}
+    ${CMAKE_CURRENT_SOURCE_DIR}/csrc/bgmv_expand/op_kernel/bgmv_expand_kernel.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/csrc/bgmv_shrink/op_kernel/bgmv_shrink_kernel.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/csrc/get_masked_input_and_mask/op_kernel/get_masked_input_and_mask_kernel.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/csrc/mla_preprocess/op_kernel/mla_preprocess_kernel.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/csrc/rotary_embedding/op_kernel/rotary_embedding_kernel.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/csrc/sgmv_expand/op_kernel/sgmv_expand_kernel.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/csrc/sgmv_shrink/op_kernel/sgmv_shrink_kernel.cpp
+)
+
+add_library(vllm_ascend_kernels SHARED
+    ${CMAKE_CURRENT_SOURCE_DIR}/csrc/utils/host_common.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/csrc/bgmv_expand/op_host/bgmv_expand.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/csrc/bgmv_shrink/op_host/bgmv_shrink.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/csrc/get_masked_input_and_mask/op_host/get_masked_input_and_mask.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/csrc/mla_preprocess/op_host/mla_preprocess.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/csrc/rotary_embedding/op_host/rotary_embedding.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/csrc/sgmv_expand/op_host/sgmv_expand.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/csrc/sgmv_shrink/op_host/sgmv_shrink.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/csrc/swap_blocks/op_host/swap_blocks.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/csrc/weak_ref_tensor/op_host/weak_ref_tensor.cpp
+)
+
+target_link_libraries(vllm_ascend_kernels PRIVATE
+    npu_kernels
+    ascendcl
+    tiling_api
+    register
+    platform
+    ascendalog
+    dl
+)
+
+message("TORCH_NPU_PATH is ${TORCH_NPU_PATH}")
+
+file(GLOB VLLM_ASCEND_SRC
+${CMAKE_CURRENT_SOURCE_DIR}/csrc/*.cpp)
+
 pybind11_add_module(vllm_ascend_C ${VLLM_ASCEND_SRC})
 
-target_link_directories(
-  vllm_ascend_C
-  PRIVATE
+target_link_directories(vllm_ascend_C PRIVATE
   ${TORCH_NPU_PATH}/lib/
   ${ASCEND_HOME_PATH}/lib64
 )
 
-target_link_libraries(
-  vllm_ascend_C
-  PUBLIC
+target_link_libraries(vllm_ascend_C PUBLIC
   ${TORCH_LIBRARIES}
   libtorch_npu.so
   vllm_ascend_kernels
-  ascendcl
-  tiling_api
-  register
-  platform
-  ascendalog
-  dl
 )
 
 target_link_options(vllm_ascend_C PRIVATE "-Wl,-rpath,$ORIGIN:$ORIGIN/lib")
