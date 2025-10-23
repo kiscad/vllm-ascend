@@ -11,15 +11,12 @@
 // See LICENSE in the root of the software repository for the full text of the License.
 //
 
-#include <fstream>
-#include <iostream>
 #include <math.h>
-#include <stdexcept>
 #include "acl/acl.h"
 #include "tiling/platform/platform_ascendc.h"
 #include "tiling/mla_preprocess_tiling.h"
 #include "../op_kernel/mla_preprocess_kernel.h"
-#include "../../utils/host_common.h"
+#include "utils/host_common.h"
 
 
 namespace vllm_ascend {

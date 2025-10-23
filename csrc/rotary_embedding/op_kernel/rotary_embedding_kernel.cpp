@@ -15,9 +15,8 @@
  */
 
 #include "kernel_operator.h"
-#include <stdio.h>
-#include "../../utils/types.h"
-#include "../../utils/utils.h"
+#include "utils/types.h"
+#include "utils/kernel_utils.h"
 
 
 using vllm_ascend::AccType;

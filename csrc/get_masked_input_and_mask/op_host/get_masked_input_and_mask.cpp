@@ -1,8 +1,5 @@
-#include <tuple>
-#include <ATen/core/Tensor.h>
-#include <ATen/Functions.h>
 #include "../op_kernel/get_masked_input_and_mask_kernel.h"
-#include "../../utils/host_common.h"
+#include "utils/host_common.h"
 
 namespace vllm_ascend {
 namespace npu_kernel {

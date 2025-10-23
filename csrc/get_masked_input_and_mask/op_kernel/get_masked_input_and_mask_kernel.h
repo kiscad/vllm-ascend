@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../../utils/types.h"
+#include "utils/types.h"
 
 namespace vllm_ascend {
 namespace npu_kernel {

@@ -53,6 +53,7 @@ include_directories(
   ${ASCEND_HOME_PATH}/include
   ${ASCEND_HOME_PATH}/aarch64-linux/include/experiment/platform
   ${ASCEND_HOME_PATH}/x86_64-linux/include/experiment/platform
+  ${CMAKE_CURRENT_SOURCE_DIR}/csrc
 )
 
 set(

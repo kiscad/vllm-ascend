@@ -1,6 +1,5 @@
 #include <vector>
 #include <ATen/core/Tensor.h>
-#include "../../utils/types.h"
 #include "torch_npu/csrc/aten/common/from_blob.h"
 
 namespace vllm_ascend {

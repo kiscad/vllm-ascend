@@ -1,5 +1,5 @@
 #include "../op_kernel/bgmv_expand_kernel.h"
-#include "../../utils/host_common.h"
+#include "utils/host_common.h"
 
 namespace vllm_ascend {
 namespace npu_kernel {

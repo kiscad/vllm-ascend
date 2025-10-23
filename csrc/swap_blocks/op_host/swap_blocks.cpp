@@ -1,4 +1,4 @@
-#include "../../utils/host_common.h"
+#include "utils/host_common.h"
 
 namespace vllm_ascend {
 namespace op_swap_block {
