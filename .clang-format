@@ -1,0 +1,67 @@
+# 基本格式
+BasedOnStyle: LLVM
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+
+# 缩进与对齐
+ContinuationIndentWidth: 8
+AlignAfterOpenBracket: Align
+AlignOperands: true
+AlignConsecutiveAssignments: true
+AlignConsecutiveDeclarations: true
+AlignConsecutiveMacros: true
+AlignTrailingComments: true
+
+# 括号与空格
+SpaceBeforeParens: ControlStatements
+SpacesInParentheses: false
+SpacesInAngles: false
+SpaceBeforeSquareBrackets: false
+SpaceAfterCStyleCast: true
+
+# 大括号换行风格
+BreakBeforeBraces: Allman
+AllowShortBlocksOnASingleLine: false
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortIfStatementsOnASingleLine: false
+AllowShortLoopsOnASingleLine: false
+
+# 换行控制
+ColumnLimit: 100
+AlwaysBreakAfterDefinitionReturnType: None
+AlwaysBreakTemplateDeclarations: Yes
+BinPackParameters: false
+BinPackArguments: false
+
+# 命名空间与类
+NamespaceIndentation: All
+IndentCaseLabels: true
+IndentGotoLabels: false
+
+# Include 管理
+IncludeBlocks: Regroup
+SortIncludes: true
+IncludeCategories:
+  - Regex: '^<.*\.h>'
+    Priority: 1
+  - Regex: '^<.*>'
+    Priority: 2
+  - Regex: '^".*"'
+    Priority: 3
+
+# 注释
+ReflowComments: true
+SpacesBeforeTrailingComments: 2
+
+# 指针与引用
+PointerAlignment: Left
+DerivePointerAlignment: false
+ReferenceAlignment: Left
+
+# 其他
+Cpp11BracedListStyle: true
+KeepEmptyLinesAtTheStartOfBlocks: false
+InsertTrailingCommas: Wrapped
+AllowAllConstructorInitializersOnNextLine: true
+SortUsingDeclarations: true
