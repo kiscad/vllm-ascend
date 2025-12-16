@@ -15,24 +15,14 @@ import triton.language as tl
 
 PAD_SLOT_ID = -1
 DEFAULT_BLOCK_M = 1024
+BLOCK_M_CANDIDATES = (512, DEFAULT_BLOCK_M)
+BLOCK_N_CANDIDATES = (64, 128, 256, 512)
 
 CAUSAL_CONV1D_AUTOTUNE_CONFIGS = [
     triton.Config({
-        "BLOCK_M": DEFAULT_BLOCK_M,
-        "BLOCK_N": 64
-    }),
-    triton.Config({
-        "BLOCK_M": DEFAULT_BLOCK_M,
-        "BLOCK_N": 128
-    }),
-    triton.Config({
-        "BLOCK_M": DEFAULT_BLOCK_M,
-        "BLOCK_N": 256
-    }),
-    triton.Config({
-        "BLOCK_M": DEFAULT_BLOCK_M,
-        "BLOCK_N": 512
-    }),
+        "BLOCK_M": block_m,
+        "BLOCK_N": block_n
+    }) for block_m in BLOCK_M_CANDIDATES for block_n in BLOCK_N_CANDIDATES
 ]
 
 
@@ -400,23 +390,47 @@ def causal_conv1d_fn(x: torch.Tensor,
         assert (dim, width) == weight.shape
         assert is_channel_last, "Need to run in channel-last layout"
 
-    BLOCK_M = DEFAULT_BLOCK_M
     seqlens = query_start_loc.diff()
-    seq_blocks = -(-seqlens // BLOCK_M)
-    total_seq_blocks = seq_blocks.sum().item()
-    # tracking which seq-idx the Triton program is handling
-    batch_ptr = torch.repeat_interleave(
-        torch.arange(len(seq_blocks), device=x.device),
-        seq_blocks).to(torch.int32)
+    seq_block_meta_cache = {}
+    empty_int32 = torch.zeros(0, dtype=torch.int32, device=x.device)
+    batch_ptr = empty_int32
+    token_chunk_offset_ptr = empty_int32
+    total_seq_blocks = 0
 
-    # tracking BLOCK_M-based index in the sequence the Triton program is handling
-    max_blocks = seq_blocks.max().item() if len(seq_blocks) > 0 else 0
-    arange = torch.arange(max_blocks, device=x.device)
-    mask = arange.unsqueeze(0) < seq_blocks.unsqueeze(1)
-    token_chunk_offset_ptr = arange.repeat(len(seq_blocks),
-                                           1)[mask].to(torch.int32)
+    # BLOCK_M changes how sequences are chunked, so cache the per-config metadata.
+    def get_seq_block_meta(block_m: int):
+        cached = seq_block_meta_cache.get(block_m)
+        if cached is not None:
+            return cached
+        if seqlens.numel() == 0:
+            seq_block_meta_cache[block_m] = (empty_int32, empty_int32, 0)
+            return seq_block_meta_cache[block_m]
+        seq_blocks = -(-seqlens // block_m)
+        batch_ptr_local = torch.repeat_interleave(
+            torch.arange(len(seq_blocks), device=x.device),
+            seq_blocks).to(torch.int32)
+        max_blocks = seq_blocks.max().item() if len(seq_blocks) > 0 else 0
+        if max_blocks == 0:
+            token_chunk_offset_ptr_local = empty_int32
+        else:
+            arange = torch.arange(max_blocks, device=x.device)
+            mask = arange.unsqueeze(0) < seq_blocks.unsqueeze(1)
+            token_chunk_offset_ptr_local = arange.repeat(len(seq_blocks),
+                                                         1)[mask].to(
+                                                             torch.int32)
+        total_seq_blocks_local = int(batch_ptr_local.numel())
+        seq_block_meta_cache[block_m] = (batch_ptr_local,
+                                         token_chunk_offset_ptr_local,
+                                         total_seq_blocks_local)
+        return seq_block_meta_cache[block_m]
 
-    grid = lambda META: (total_seq_blocks, triton.cdiv(dim, META["BLOCK_N"]))
+    def grid(meta):
+        nonlocal batch_ptr, token_chunk_offset_ptr, total_seq_blocks
+        block_m = int(meta["BLOCK_M"])
+        block_n = int(meta["BLOCK_N"])
+        batch_ptr, token_chunk_offset_ptr, total_seq_blocks = get_seq_block_meta(
+            block_m)
+        return (total_seq_blocks, triton.cdiv(dim, block_n))
 
     with torch.npu.device(x.device.index):
         _causal_conv1d_fwd_kernel[grid](
